@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#FBF8F2;
+    --surface:#FFFFFF;
+    --surface-2:#F5EEE0;
+    --ink:#241C18;
+    --ink-soft:#7A6F63;
+    --line:#E8DDC9;
+    --accent:#DD0A2D;
+    --accent-dark:#A80C22;
+    --accent-bg: rgba(221,10,45,0.08);
+    --pending:#E85D75;
+    --pending-bg:#FDEBEF;
+    --pending-line:#F6C7D1;
+    --complete:#2E9E5B;
+    --complete-bg:#E7F6EC;
+    --complete-line:#BFE6CE;
+    --overdue:#B91C3C;
+    --overdue-bg:#FBE1E6;
+    --overdue-line:#F0AEBB;
+    --focus:#1F6FEB;
+    --radius:16px;
+    --shadow: 0 1px 2px rgba(36,28,24,0.05), 0 8px 24px rgba(36,28,24,0.07);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overflow-x:hidden;width:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent);color:#fff;}
+  .app{max-width:960px;margin:0 auto;padding:20px 16px 70px;width:100%;}
+
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:14px;margin-bottom:22px;flex-wrap:wrap;position:relative;overflow:hidden;
+    border-radius:20px;
+  }
+  .brand{display:flex;align-items:center;gap:13px;position:relative;z-index:1;}
+  .logo-btn{background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:13px;text-align:left;border-radius:12px;}
+  .logo-btn:focus-visible{outline:2px solid var(--focus);outline-offset:3px;}
+  .brand .mark{
+    width:44px;height:44px;border-radius:12px;
+    background:linear-gradient(160deg, var(--accent), var(--accent-dark));
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow: 0 4px 14px rgba(221,10,45,0.28);
+    transition:transform .12s ease;
+  }
+  .logo-btn:hover .mark{transform:scale(1.05);}
+  .brand .mark svg{width:24px;height:24px;}
+  .brand h1{
+    font-family:'Fredoka',sans-serif;font-size:24px;font-weight:600;
+    margin:0;letter-spacing:-0.01em;line-height:1.1;color:var(--ink);
+  }
+  .brand p{margin:2px 0 0;font-size:12.5px;color:var(--ink-soft);}
+
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);padding:4px;border-radius:12px;box-shadow:var(--shadow);position:relative;z-index:1;}
+  .tab-btn{
+    border:none;background:transparent;padding:9px 18px;border-radius:9px;
+    font-family:'Inter';font-weight:600;font-size:13.5px;color:var(--ink-soft);
+    cursor:pointer;transition:background .15s ease, color .15s ease;
+  }
+  .tab-btn.active{background:var(--accent);color:#fff;}
+  .tab-btn:hover:not(.active){color:var(--ink);}
+  .tab-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+
+  .view{display:none;animation:fadeIn .25s ease;}
+  .view.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){ .view{animation:none;} }
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  .setup-card{padding:28px;max-width:640px;margin:40px auto;}
+  .setup-card h2{font-family:'Fredoka',sans-serif;margin-top:0;font-weight:600;}
+  .setup-card code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-family:'IBM Plex Mono';font-size:12.5px;color:var(--accent-dark);}
+  .setup-card p{color:var(--ink-soft);line-height:1.55;}
+
+  .admin-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+  @media(min-width:760px){.admin-grid{grid-template-columns: 380px 1fr;align-items:start;}}
+  .admin-form{padding:22px;}
+  .admin-form h2, .admin-list h2{
+    font-family:'Inter';font-size:12.5px;margin:0 0 16px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);
+  }
+  label.field{display:block;margin-bottom:15px;}
+  label.field span{display:block;font-size:12.5px;font-weight:600;margin-bottom:7px;color:var(--ink);}
+  input[type=date],input[type=number],input[type=text],textarea,select{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+    font-family:'Inter';font-size:16px;color:var(--ink);background:var(--surface-2);
+  }
+  select{appearance:auto;}
+  input[type=number]{font-family:'IBM Plex Mono';font-weight:600;}
+  textarea{resize:vertical;min-height:64px;font-size:16px;font-family:'Inter';}
+  input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px;}
+  .btn{
+    appearance:none;border:none;border-radius:11px;padding:12px 18px;
+    font-family:'Inter';font-weight:700;font-size:14px;cursor:pointer;
+    transition:transform .08s ease, filter .15s ease, background .15s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-block{width:100%;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+  .btn-ghost:hover{background:var(--surface-2);color:var(--ink);}
+  .btn-secondary{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);}
+  .btn-secondary:hover{background:var(--line);}
+  .btn-danger-text{background:none;border:none;color:var(--pending);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 6px;opacity:.9;}
+  .btn-danger-text:hover{opacity:1;}
+  .btn-sm{padding:8px 12px;font-size:12.5px;}
+
+  .item-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .item-row{display:flex;gap:8px;align-items:center;}
+  .item-row select{flex:2;min-width:0;}
+  .item-row input[type=number]{flex:1;min-width:0;max-width:90px;}
+  .item-row .remove-item{
+    flex-shrink:0;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--pending);font-size:16px;font-weight:700;cursor:pointer;
+  }
+  .item-row .remove-item:hover{background:var(--pending-bg);}
+  .item-row .remove-item:disabled{opacity:.35;cursor:not-allowed;}
+  .add-item-btn{
+    background:none;border:1px dashed var(--line);color:var(--accent-dark);font-weight:700;font-size:13px;
+    padding:9px;border-radius:10px;cursor:pointer;width:100%;margin-bottom:16px;
+  }
+  .add-item-btn:hover{background:var(--accent-bg);border-color:var(--accent);}
+
+  .admin-list{padding:22px;margin-top:0;}
+  .admin-list-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .admin-list-header h2{margin:0;}
+  .mini-tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);padding:3px;border-radius:9px;}
+  .mini-tab{border:none;background:transparent;padding:6px 13px;border-radius:7px;font-size:12px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .mini-tab.active{background:var(--accent);color:#fff;}
+  .order-row{
+    display:flex;align-items:center;gap:12px;padding:13px 8px;border-bottom:1px solid var(--line);
+  }
+  .order-row:last-child{border-bottom:none;}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .dot.pending{background:var(--pending);box-shadow:0 0 0 3px var(--pending-bg);}
+  .dot.complete{background:var(--complete);box-shadow:0 0 0 3px var(--complete-bg);}
+  .order-row .meta{flex:1;min-width:0;}
+  .order-row .meta .d{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .order-row .meta .n{font-size:12px;color:var(--ink-soft);}
+  .order-row .meta .t{font-size:10.5px;color:var(--ink-soft);opacity:.8;margin-top:2px;}
+  .order-row .cases{font-family:'IBM Plex Mono';font-weight:700;font-size:13px;color:var(--ink);white-space:nowrap;text-align:right;}
+  .order-row .cases small{display:block;font-weight:500;font-size:10px;color:var(--ink-soft);font-family:'Inter';}
+  .empty-note{padding:24px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
+  .cal-card{padding:18px;}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cal-nav h2{font-family:'Fredoka',sans-serif;font-size:19px;font-weight:600;margin:0;color:var(--ink);}
+  .cal-nav .navbtns{display:flex;gap:6px;}
+  .icon-btn{
+    width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);flex-shrink:0;
+  }
+  .icon-btn:hover{background:var(--line);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;width:100%;}
+  .cal-dow{font-size:10.5px;font-weight:700;text-align:center;color:var(--ink-soft);padding-bottom:5px;text-transform:uppercase;letter-spacing:.03em;}
+  .cal-cell{
+    position:relative;aspect-ratio:1/1;border-radius:10px;border:1px solid var(--line);
+    background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:2px;cursor:default;min-height:0;min-width:0;overflow:hidden;
+    transition:transform .1s ease, border-color .15s ease;
+  }
+  .cal-cell.pad{background:transparent;border-color:transparent;}
+  .cal-cell.has-orders{cursor:pointer;}
+  .cal-cell.has-orders:hover{border-color:var(--accent);transform:translateY(-1px);}
+  .cal-cell.today{box-shadow:0 0 0 2px var(--accent) inset;}
+  .cal-cell .dnum{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1;}
+  .cal-cell.pending{background:var(--pending-bg);border-color:var(--pending-line);}
+  .cal-cell.pending .dnum{color:var(--pending);}
+  .cal-cell.complete{background:var(--complete-bg);border-color:var(--complete-line);}
+  .cal-cell.complete .dnum{color:var(--complete);}
+  .cal-badge{
+    margin-top:3px;font-family:'IBM Plex Mono';font-size:9.5px;font-weight:700;
+    padding:1px 5px;border-radius:6px;line-height:1.4;
+  }
+  .cal-cell.pending .cal-badge{background:var(--pending);color:#fff;}
+  .cal-cell.complete .cal-badge{background:var(--complete);color:#fff;}
+  .cal-cell.overdue{background:var(--overdue-bg);border-color:var(--overdue-line);}
+  .cal-cell.overdue .dnum{color:var(--overdue);}
+  .cal-cell.overdue .cal-badge{background:var(--overdue);color:#fff;}
+  .dot.overdue{background:var(--overdue);box-shadow:0 0 0 3px var(--overdue-bg);}
+
+  .legend{display:flex;gap:16px;margin-top:14px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw{width:10px;height:10px;border-radius:3px;}
+
+  .breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--ink-soft);}
+  .breadcrumb button{background:none;border:none;color:var(--accent-dark);font-weight:700;cursor:pointer;padding:0;font-size:13px;}
+  .step-label{font-family:'Inter';font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);margin-bottom:6px;font-weight:700;}
+  .step-title{font-family:'Fredoka',sans-serif;font-size:21px;font-weight:600;margin:0 0 16px;color:var(--ink);}
+
+  .list-head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .list-head-row .step-title{margin-bottom:0;}
+
+  .ticket-list{display:flex;flex-direction:column;gap:12px;}
+  .ticket{
+    position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:16px 16px 16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;
+    border-left:5px solid var(--pending);transition:transform .12s ease, border-color .12s ease;
+  }
+  .ticket.done{border-left-color:var(--complete);}
+  .ticket.overdue{border-left-color:var(--overdue);}
+  .ticket:hover{transform:translateX(3px);}
+  .ticket:focus-visible{outline:2px solid var(--focus);}
+  .ticket .tmain{flex:1;min-width:0;}
+  .ticket .ttype{font-weight:700;font-size:15px;color:var(--ink);}
+  .ticket .titems{font-size:12.5px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
+  .ticket .tnotes{font-size:12.5px;color:var(--ink-soft);margin-top:2px;font-style:italic;}
+  .ticket .tcases{font-family:'IBM Plex Mono';font-weight:700;font-size:19px;color:var(--ink);}
+  .ticket .tcases small{display:block;font-size:9.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;font-family:'Inter';}
+  .status-chip{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;}
+  .status-chip.pending{background:var(--pending-bg);color:var(--pending);}
+  .status-chip.done{background:var(--complete-bg);color:var(--complete);}
+  .status-chip.overdue{background:var(--overdue-bg);color:var(--overdue);}
+
+  .detail-card{padding:24px;}
+  .detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;}
+
+  .items-box{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:18px;}
+  .item-line{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--pending-bg);border-bottom:1px solid var(--pending-line);}
+  .item-line:last-child{border-bottom:none;}
+  .items-box.done .item-line{background:var(--complete-bg);border-bottom-color:var(--complete-line);}
+  .item-line .itype{font-weight:600;font-size:14.5px;color:var(--ink);}
+  .item-line .icases{font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--ink);}
+  .item-total{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--surface-2);}
+  .item-total .lab{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+  .item-total .num-lg{font-family:'IBM Plex Mono';font-size:22px;font-weight:700;color:var(--ink);}
+
+  .order-notes{font-size:13.5px;color:var(--ink-soft);background:var(--surface-2);border-radius:10px;padding:11px 13px;margin-bottom:18px;border:1px solid var(--line);}
+  .note-flag{background:var(--pending-bg);border:1.5px solid var(--pending-line);border-radius:12px;padding:15px 17px;margin-bottom:18px;}
+  .note-flag-text{font-weight:700;font-size:14.5px;color:var(--ink);margin-bottom:12px;line-height:1.45;}
+  .note-check{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink);user-select:none;}
+  .note-check input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+  .note-check.disabled{cursor:default;opacity:.7;}
+  .divider{height:1px;background:var(--line);margin:20px 0;}
+  .completed-banner{
+    display:flex;align-items:center;gap:10px;background:var(--complete-bg);color:var(--complete);
+    border-radius:10px;padding:11px 15px;font-weight:700;font-size:13.5px;margin-bottom:16px;
+  }
+  .overdue-banner{
+    display:flex;align-items:center;gap:10px;background:var(--overdue-bg);color:var(--overdue);
+    border-radius:10px;padding:11px 15px;font-weight:700;font-size:13.5px;margin-bottom:16px;
+  }
+  .action-row{display:flex;gap:10px;flex-wrap:wrap;}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:3px solid var(--accent);
+    padding:11px 20px;border-radius:11px;
+    font-size:13.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;z-index:50;max-width:90vw;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  .loading-row{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:13.5px;padding:24px;}
+  .spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--complete);display:inline-block;margin-right:6px;box-shadow:0 0 0 3px var(--complete-bg);}
+  .sync-note{font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;margin-top:6px;}
+
+  @media(max-width:480px){
+    .app{padding:14px 10px 60px;}
+    .brand h1{font-size:19px;}
+    .brand p{font-size:11px;}
+    .brand .mark{width:38px;height:38px;}
+    .cal-grid{gap:4px;}
+    .cal-cell{border-radius:8px;}
+    .cal-dow{font-size:9.5px;}
+    .cal-cell .dnum{font-size:11px;}
+    .cal-badge{font-size:8.5px;padding:1px 4px;}
+    .step-title{font-size:18px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="logo-btn" id="logoBtn" aria-label="Go to Stocking">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 20V13L12 6L20 13V20H15V15H9V20H4Z" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Coop</h1>
+        <p>Thaw cabinet stocking</p>
+      </div>
+    </button>
+    <div class="tabs" role="tablist" aria-label="View switcher">
+      <button class="tab-btn active" id="tabStaffBtn" role="tab" aria-selected="true">Stocking</button>
+      <button class="tab-btn" id="tabAdminBtn" role="tab" aria-selected="false">Admin</button>
+    </div>
+  </header>
+
+  <div id="loadingRow" class="loading-row"><div class="spinner"></div> Waking up the coop…</div>
+
+  <div class="card setup-card" id="setupCard" style="display:none;">
+    <h2>One-time setup needed</h2>
+    <p>Coop stores orders in Firebase so Admin can add them from anywhere. Paste your <code>firebaseConfig</code> object (from Firebase console → Project settings → Your apps) into the marked spot near the top of this file's <code>&lt;script&gt;</code> tag, then reload.</p>
+    <p style="font-size:13px;">Look for the block starting with <code>const firebaseConfig = {</code> and replace the placeholder values.</p>
+  </div>
+
+  <div id="mainUI" style="display:none;">
+  <section class="view" id="viewAdmin">
+    <div class="admin-grid">
+      <div class="card admin-form">
+        <h2 id="formHeading">Add an order</h2>
+        <div id="editingBanner" style="display:none;background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent-dark);border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:13px;font-weight:600;align-items:center;justify-content:space-between;gap:10px;">
+          <span id="editingBannerText">Editing order</span>
+          <button type="button" id="cancelEditBtn" style="background:none;border:none;color:var(--accent-dark);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;">Cancel</button>
+        </div>
+        <form id="addOrderForm">
+          <label class="field">
+            <span>Order name</span>
+            <input type="text" id="fName" placeholder="e.g. Morning delivery" required>
+          </label>
+          <label class="field">
+            <span>Date needed</span>
+            <input type="date" id="fDate" required>
+          </label>
+          <label class="field">
+            <span>Chicken needed</span>
+            <div class="item-rows" id="itemRows"></div>
+            <button type="button" class="add-item-btn" id="addItemBtn">+ Add another type</button>
+          </label>
+          <label class="field">
+            <span>Notes for staff (optional)</span>
+            <textarea id="fNotes" placeholder="e.g. Split between both thaw cabinets"></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary btn-block" id="addOrderBtn">Add to calendar</button>
+        </form>
+      </div>
+      <div class="card admin-list">
+        <div class="admin-list-header">
+          <h2>All orders</h2>
+          <div class="mini-tabs">
+            <button class="mini-tab active" id="filterUpcomingBtn">Upcoming</button>
+            <button class="mini-tab" id="filterAllBtn">All</button>
+          </div>
+        </div>
+        <input type="text" id="adminSearchInput" placeholder="Search by order name…" style="margin-bottom:16px;">
+        <div id="adminOrderList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view active" id="viewCalendar">
+    <div class="card cal-card">
+      <div class="cal-nav">
+        <button class="icon-btn" id="prevMonthBtn" aria-label="Previous month">‹</button>
+        <h2 id="calMonthLabel"></h2>
+        <div class="navbtns">
+          <button class="btn btn-ghost" id="todayBtn" style="padding:8px 12px;font-size:12.5px;">Today</button>
+          <button class="icon-btn" id="nextMonthBtn" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calDow"></div>
+      <div class="cal-grid" id="calGrid" style="margin-top:5px;"></div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--pending);"></span> Needs stocking</span>
+        <span><span class="sw" style="background:var(--overdue);"></span> Overdue</span>
+        <span><span class="sw" style="background:var(--complete);"></span> Completed</span>
+      </div>
+      <div class="sync-note"><span class="sync-dot"></span> Live — updates automatically</div>
+    </div>
+  </section>
+
+  <section class="view" id="viewOrderList">
+    <div class="breadcrumb"><button id="backToCalBtn">← Calendar</button></div>
+    <div class="list-head-row">
+      <div>
+        <div class="step-label">Step 1 · Select an order</div>
+        <h2 class="step-title" id="orderListDate"></h2>
+      </div>
+      <button class="btn btn-secondary" id="markAllBtn">Mark all complete</button>
+    </div>
+    <div class="ticket-list" id="ticketList"></div>
+  </section>
+
+  <section class="view" id="viewOrderDetail">
+    <div class="breadcrumb"><button id="backToListBtn">← Back to orders</button></div>
+    <div class="card detail-card">
+      <div id="completedBannerSlot"></div>
+      <div class="detail-head">
+        <div>
+          <div class="step-label" id="stepLabelDetail">Step 2 · Stock as needed</div>
+          <h2 class="step-title" style="margin-bottom:2px;" id="detailNameLabel"></h2>
+          <div class="num" id="detailDateLabel" style="color:var(--ink-soft);font-size:13px;"></div>
+        </div>
+      </div>
+
+      <div class="items-box" id="itemsBox"></div>
+
+      <div class="order-notes" id="detailAdminNotes" style="display:none;"></div>
+
+      <div id="stockingControls">
+        <label class="field">
+          <span>Notes (optional)</span>
+          <textarea id="staffNotesInput" placeholder="Anything worth flagging?"></textarea>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+      <div class="action-row" id="detailActions"></div>
+    </div>
+  </section>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBVgZwe02egrntM0MUdrEWcALKXDhl21XY",
+    authDomain: "na-coop.firebaseapp.com",
+    projectId: "na-coop",
+    storageBucket: "na-coop.firebasestorage.app",
+    messagingSenderId: "479207200592",
+    appId: "1:479207200592:web:7902379ff6e8f530eb7e55"
+  };
+
+  const CHICKEN_TYPES = [
+    "Filet",
+    "Spicy",
+    "Strips",
+    "Nuggets",
+    "Grilled Filet",
+    "Grilled Nuggets",
+    "Breakfast Filet",
+    "Spicy Breakfast Filet"
+  ];
+
+  const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+  const $ = (id) => document.getElementById(id);
+
+  if(!isConfigured){
+    $('loadingRow').style.display = 'none';
+    $('setupCard').style.display = 'block';
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const ordersRef = db.collection('orders');
+
+  let orders = [];
+  let currentYear, currentMonth;
+  let activeDateStr = null;
+  let activeOrderId = null;
+  let firstLoad = true;
+  let itemRowSeq = 0;
+  let adminFilter = 'upcoming';
+  let adminSearchTerm = '';
+  const acknowledgedNotes = new Set();
+
+  function todayStr(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function fmtDateTime(ts){
+    if(!ts) return '';
+    return new Date(ts).toLocaleString(undefined, {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+  }
+  function fmtDateLong(dateStr){
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  }
+  function fmtDateShort(dateStr){
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'});
+  }
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+  // Normalize an order to always have an items array, even for legacy docs
+  // that stored a single flat type/cases pair.
+  function getItems(o){
+    if(Array.isArray(o.items) && o.items.length) return o.items;
+    if(o.type) return [{ type: o.type, cases: o.cases || 0 }];
+    return [];
+  }
+  function getTotalCases(o){
+    return getItems(o).reduce((sum,i)=> sum + (parseInt(i.cases,10)||0), 0);
+  }
+  function getOrderName(o, fallbackIdx){
+    return (o.name && o.name.trim()) ? o.name.trim() : `Order ${fallbackIdx+1}`;
+  }
+  function isOverdue(o){
+    return o.status !== 'completed' && o.date < todayStr();
+  }
+
+  // ---------- ITEM ROWS (admin form) ----------
+  function addItemRow(prefillType, prefillCases){
+    itemRowSeq++;
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.dataset.rowId = itemRowSeq;
+    const options = CHICKEN_TYPES.map(t=>`<option value="${t}" ${t===prefillType?'selected':''}>${t}</option>`).join('');
+    row.innerHTML = `
+      <select class="item-type">${options}</select>
+      <input type="number" class="item-cases" min="1" step="1" value="${prefillCases || 1}">
+      <button type="button" class="remove-item" aria-label="Remove this item">×</button>
+    `;
+    row.querySelector('.remove-item').addEventListener('click', ()=>{
+      row.remove();
+      updateRemoveButtons();
+    });
+    $('itemRows').appendChild(row);
+    updateRemoveButtons();
+  }
+  function updateRemoveButtons(){
+    const rows = $('itemRows').querySelectorAll('.item-row');
+    rows.forEach(r=>{
+      r.querySelector('.remove-item').disabled = rows.length <= 1;
+    });
+  }
+  function resetItemRows(){
+    $('itemRows').innerHTML = '';
+    addItemRow();
+  }
+  $('addItemBtn').addEventListener('click', ()=>addItemRow());
+  resetItemRows();
+
+  $('filterUpcomingBtn').addEventListener('click', ()=>{
+    adminFilter = 'upcoming';
+    $('filterUpcomingBtn').classList.add('active');
+    $('filterAllBtn').classList.remove('active');
+    renderAdminList();
+  });
+  $('filterAllBtn').addEventListener('click', ()=>{
+    adminFilter = 'all';
+    $('filterAllBtn').classList.add('active');
+    $('filterUpcomingBtn').classList.remove('active');
+    renderAdminList();
+  });
+  $('adminSearchInput').addEventListener('input', (e)=>{
+    adminSearchTerm = e.target.value;
+    renderAdminList();
+  });
+
+  function setTab(tab){
+    const isStaff = tab === 'staff';
+    $('tabStaffBtn').classList.toggle('active', isStaff);
+    $('tabAdminBtn').classList.toggle('active', !isStaff);
+    $('tabStaffBtn').setAttribute('aria-selected', isStaff);
+    $('tabAdminBtn').setAttribute('aria-selected', !isStaff);
+    $('viewAdmin').classList.toggle('active', !isStaff);
+    if(isStaff){
+      showCalendar();
+    } else {
+      $('viewCalendar').classList.remove('active');
+      $('viewOrderList').classList.remove('active');
+      $('viewOrderDetail').classList.remove('active');
+      renderAdminList();
+    }
+  }
+  $('tabStaffBtn').addEventListener('click', ()=>setTab('staff'));
+  $('tabAdminBtn').addEventListener('click', ()=>setTab('admin'));
+  $('logoBtn').addEventListener('click', ()=>setTab('staff'));
+
+  function showView(id){
+    ['viewCalendar','viewOrderList','viewOrderDetail'].forEach(v=>{
+      $(v).classList.toggle('active', v === id);
+    });
+  }
+
+  $('addOrderForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const name = $('fName').value.trim();
+    const date = $('fDate').value;
+    const notes = $('fNotes').value.trim();
+    const rows = Array.from($('itemRows').querySelectorAll('.item-row'));
+    const items = rows.map(r=>({
+      type: r.querySelector('.item-type').value,
+      cases: parseInt(r.querySelector('.item-cases').value, 10) || 0
+    })).filter(i=>i.cases > 0);
+
+    if(!date || items.length === 0) return;
+
+    const btn = $('addOrderBtn');
+    btn.disabled = true;
+
+    if(editingOrderId){
+      btn.textContent = 'Saving…';
+      try{
+        await ordersRef.doc(editingOrderId).update({
+          name, date, items, adminNotes: notes,
+          updatedAt: Date.now(),
+          editCount: firebase.firestore.FieldValue.increment(1)
+        });
+        showToast('Order updated.');
+        cancelEdit();
+      }catch(err){
+        showToast('Could not save changes — check connection.');
+        btn.textContent = 'Save changes';
+      }
+    } else {
+      btn.textContent = 'Adding…';
+      try{
+        await ordersRef.add({
+          name,
+          date,
+          items,
+          adminNotes: notes,
+          status: 'pending',
+          staffNotes: '',
+          createdAt: Date.now(),
+          completedAt: null
+        });
+        e.target.reset();
+        $('fDate').value = todayStr();
+        resetItemRows();
+        showToast('Order added to calendar.');
+      }catch(err){
+        showToast('Could not add order — check connection.');
+      }
+      btn.textContent = 'Add to calendar';
+    }
+    btn.disabled = false;
+  });
+
+  function renderAdminList(){
+    const list = $('adminOrderList');
+    let sourceOrders = orders;
+    if(adminFilter === 'upcoming'){
+      const today = todayStr();
+      sourceOrders = orders.filter(o => o.status !== 'completed' || o.date >= today);
+    }
+    const term = adminSearchTerm.trim().toLowerCase();
+    if(term){
+      sourceOrders = sourceOrders.filter((o,i) => getOrderName(o, i).toLowerCase().includes(term));
+    }
+    if(sourceOrders.length === 0){
+      let msg = 'No orders yet. Add one on the left.';
+      if(orders.length > 0 && term) msg = `No orders match "${adminSearchTerm.trim()}".`;
+      else if(orders.length > 0) msg = 'No upcoming orders. Switch to "All" to see order history.';
+      list.innerHTML = `<div class="empty-note">${escapeHtml(msg)}</div>`;
+      return;
+    }
+    const sorted = [...sourceOrders].sort((a,b)=> a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+    list.innerHTML = sorted.map((o, i) => {
+      const items = getItems(o);
+      const total = getTotalCases(o);
+      const typeSummary = items.length === 1 ? items[0].type : `${items.length} types`;
+      const editTrail = o.editCount
+        ? ` · Edited ${o.editCount}× (last ${fmtDateTime(o.updatedAt)})`
+        : '';
+      return `
+      <div class="order-row">
+        <span class="dot ${o.status === 'completed' ? 'complete' : (isOverdue(o) ? 'overdue' : 'pending')}"></span>
+        <div class="meta">
+          <div class="d">${escapeHtml(getOrderName(o, i))} · ${fmtDateShort(o.date)}</div>
+          <div class="n">${o.adminNotes ? escapeHtml(o.adminNotes) : (o.status === 'completed' ? 'Completed' : 'Needs stocking')}</div>
+          <div class="t">Added ${fmtDateTime(o.createdAt)}${editTrail}</div>
+        </div>
+        <div class="cases">${total}<small>${escapeHtml(typeSummary)}</small></div>
+        <button class="btn-ghost btn-sm edit-order-btn" data-id="${o.id}">Edit</button>
+        <button class="btn-ghost btn-sm duplicate-order-btn" data-id="${o.id}">Duplicate</button>
+        <button class="btn-danger-text" data-id="${o.id}">Remove</button>
+      </div>
+    `;}).join('');
+    list.querySelectorAll('.btn-danger-text').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const id = btn.getAttribute('data-id');
+        if(!confirm('Remove this order? This cannot be undone.')) return;
+        try{
+          await ordersRef.doc(id).delete();
+        }catch(err){
+          showToast('Could not remove order.');
+        }
+      });
+    });
+    list.querySelectorAll('.edit-order-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const o = orders.find(x=>x.id === btn.getAttribute('data-id'));
+        if(o) startEdit(o);
+      });
+    });
+    list.querySelectorAll('.duplicate-order-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const o = orders.find(x=>x.id === btn.getAttribute('data-id'));
+        if(o) duplicateOrder(o);
+      });
+    });
+  }
+
+  // ---------- EDIT ORDER ----------
+  let editingOrderId = null;
+
+  function startEdit(o){
+    editingOrderId = o.id;
+    $('fName').value = o.name || '';
+    $('fDate').value = o.date;
+    $('fNotes').value = o.adminNotes || '';
+    $('itemRows').innerHTML = '';
+    const items = getItems(o);
+    if(items.length){
+      items.forEach(i => addItemRow(i.type, i.cases));
+    } else {
+      addItemRow();
+    }
+    $('formHeading').textContent = 'Edit order';
+    $('addOrderBtn').textContent = 'Save changes';
+    $('editingBanner').style.display = 'flex';
+    $('editingBannerText').textContent = `Editing "${o.name || 'this order'}"`;
+    $('addOrderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelEdit(){
+    editingOrderId = null;
+    $('addOrderForm').reset();
+    $('fDate').value = todayStr();
+    resetItemRows();
+    $('formHeading').textContent = 'Add an order';
+    $('addOrderBtn').textContent = 'Add to calendar';
+    $('editingBanner').style.display = 'none';
+  }
+  $('cancelEditBtn').addEventListener('click', cancelEdit);
+
+  function duplicateOrder(o){
+    editingOrderId = null;
+    $('fName').value = o.name || '';
+    const [y,m,d] = o.date.split('-').map(Number);
+    const nextDate = new Date(y, m-1, d+7);
+    $('fDate').value = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}-${String(nextDate.getDate()).padStart(2,'0')}`;
+    $('fNotes').value = o.adminNotes || '';
+    $('itemRows').innerHTML = '';
+    const items = getItems(o);
+    if(items.length){
+      items.forEach(i => addItemRow(i.type, i.cases));
+    } else {
+      addItemRow();
+    }
+    $('formHeading').textContent = 'Add an order';
+    $('addOrderBtn').textContent = 'Add to calendar';
+    $('editingBanner').style.display = 'flex';
+    $('editingBannerText').textContent = `Duplicating "${getOrderName(o, 0)}" — pick a date, then add`;
+    $('addOrderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showCalendar(){
+    showView('viewCalendar');
+    renderCalendar();
+  }
+  function ordersForDate(dateStr){
+    return orders.filter(o => o.date === dateStr);
+  }
+  function renderCalendar(){
+    const dowRow = $('calDow');
+    if(dowRow.children.length === 0){
+      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{
+        const el = document.createElement('div');
+        el.className = 'cal-dow';
+        el.textContent = d;
+        dowRow.appendChild(el);
+      });
+    }
+    const monthLabel = new Date(currentYear, currentMonth, 1)
+      .toLocaleDateString(undefined,{month:'long', year:'numeric'});
+    $('calMonthLabel').textContent = monthLabel;
+
+    const grid = $('calGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+    const today = todayStr();
+
+    for(let i=0;i<firstDay;i++){
+      const pad = document.createElement('div');
+      pad.className = 'cal-cell pad';
+      grid.appendChild(pad);
+    }
+
+    for(let day=1; day<=daysInMonth; day++){
+      const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const dayOrders = ordersForDate(dateStr);
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      if(dateStr === today) cell.classList.add('today');
+
+      if(dayOrders.length > 0){
+        cell.classList.add('has-orders');
+        const allDone = dayOrders.every(o => o.status === 'completed');
+        const anyOverdue = dayOrders.some(isOverdue);
+        const stateClass = allDone ? 'complete' : (anyOverdue ? 'overdue' : 'pending');
+        cell.classList.add(stateClass);
+        cell.innerHTML = `<div class="dnum">${day}</div><div class="cal-badge">${dayOrders.length}</div>`;
+        cell.setAttribute('tabindex','0');
+        cell.setAttribute('role','button');
+        cell.setAttribute('aria-label', `${fmtDateLong(dateStr)}, ${dayOrders.length} order(s), ${allDone ? 'completed' : (anyOverdue ? 'overdue' : 'needs stocking')}`);
+        cell.addEventListener('click', ()=>openOrderList(dateStr));
+        cell.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openOrderList(dateStr); }});
+      } else {
+        cell.innerHTML = `<div class="dnum">${day}</div>`;
+      }
+      grid.appendChild(cell);
+    }
+  }
+  $('prevMonthBtn').addEventListener('click', ()=>{
+    currentMonth--;
+    if(currentMonth < 0){ currentMonth = 11; currentYear--; }
+    renderCalendar();
+  });
+  $('nextMonthBtn').addEventListener('click', ()=>{
+    currentMonth++;
+    if(currentMonth > 11){ currentMonth = 0; currentYear++; }
+    renderCalendar();
+  });
+  $('todayBtn').addEventListener('click', ()=>{
+    const t = new Date();
+    currentYear = t.getFullYear();
+    currentMonth = t.getMonth();
+    renderCalendar();
+  });
+
+  function openOrderList(dateStr){
+    activeDateStr = dateStr;
+    renderOrderList();
+    showView('viewOrderList');
+  }
+  function renderOrderList(){
+    if(!activeDateStr) return;
+    $('orderListDate').textContent = fmtDateLong(activeDateStr);
+    const dayOrders = ordersForDate(activeDateStr).sort((a,b)=>a.createdAt-b.createdAt);
+    const anyPending = dayOrders.some(o => o.status !== 'completed');
+    $('markAllBtn').style.display = dayOrders.length > 0 ? 'inline-flex' : 'none';
+    $('markAllBtn').disabled = !anyPending;
+    $('markAllBtn').textContent = anyPending ? 'Mark all complete' : 'All complete ✓';
+
+    const list = $('ticketList');
+    list.innerHTML = dayOrders.map((o, idx) => {
+      const items = getItems(o);
+      const total = getTotalCases(o);
+      const overdue = isOverdue(o);
+      const itemLines = items.map(i => `${i.cases} × ${escapeHtml(i.type)}`).join(' &nbsp;·&nbsp; ');
+      const chipClass = o.status === 'completed' ? 'done' : (overdue ? 'overdue' : 'pending');
+      const chipLabel = o.status === 'completed' ? 'Completed' : (overdue ? 'Overdue' : 'Pending');
+      return `
+      <div class="ticket ${o.status === 'completed' ? 'done' : ''} ${overdue ? 'overdue' : ''}" data-id="${o.id}" tabindex="0" role="button" aria-label="${escapeHtml(getOrderName(o, idx))}, ${total} cases, ${chipLabel}">
+        <div class="tmain">
+          <div class="ttype">${escapeHtml(getOrderName(o, idx))}</div>
+          <div class="titems">${itemLines}</div>
+          ${o.adminNotes ? `<div class="tnotes">${escapeHtml(o.adminNotes)}</div>` : ''}
+        </div>
+        <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <span class="status-chip ${chipClass}">${chipLabel}</span>
+          <div class="tcases">${total}<small>cases</small></div>
+        </div>
+      </div>
+    `;}).join('') || '<div class="empty-note">No orders for this date.</div>';
+
+    list.querySelectorAll('.ticket').forEach(el=>{
+      const open = ()=>openOrderDetail(el.getAttribute('data-id'));
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); }});
+    });
+  }
+  $('backToCalBtn').addEventListener('click', showCalendar);
+
+  $('markAllBtn').addEventListener('click', async ()=>{
+    if(!activeDateStr) return;
+    const dayOrders = ordersForDate(activeDateStr).filter(o => o.status !== 'completed');
+    if(dayOrders.length === 0) return;
+
+    const notesText = dayOrders
+      .map((o, i) => (o.adminNotes && o.adminNotes.trim()) ? `• ${getOrderName(o, i)}: "${o.adminNotes.trim()}"` : null)
+      .filter(Boolean)
+      .join('\n');
+
+    let confirmMsg = `Mark all ${dayOrders.length} order(s) for ${fmtDateShort(activeDateStr)} complete?`;
+    if(notesText){
+      confirmMsg = `These orders have notes — please read before continuing:\n\n${notesText}\n\n${confirmMsg}`;
+    }
+    if(!confirm(confirmMsg)) return;
+
+    const btn = $('markAllBtn');
+    btn.disabled = true;
+    btn.textContent = 'Marking…';
+    try{
+      const batch = db.batch();
+      dayOrders.forEach(o=>{
+        batch.update(ordersRef.doc(o.id), { status: 'completed', completedAt: Date.now() });
+      });
+      await batch.commit();
+      showToast('All orders marked complete.');
+    }catch(err){
+      showToast('Could not update all orders.');
+    }
+  });
+
+  function openOrderDetail(orderId){
+    activeOrderId = orderId;
+    renderOrderDetail();
+    showView('viewOrderDetail');
+  }
+  function renderOrderDetail(){
+    const o = orders.find(x=>x.id === activeOrderId);
+    if(!o){ showCalendar(); return; }
+
+    const isDone = o.status === 'completed';
+    const dayOrders = ordersForDate(o.date).sort((a,b)=>a.createdAt-b.createdAt);
+    const idx = dayOrders.findIndex(x=>x.id===o.id);
+
+    $('detailNameLabel').textContent = getOrderName(o, idx);
+    $('detailDateLabel').textContent = fmtDateLong(o.date);
+    $('stepLabelDetail').textContent = isDone ? 'Completed' : 'Step 2 · Stock as needed';
+
+    const items = getItems(o);
+    const total = getTotalCases(o);
+    const itemsBox = $('itemsBox');
+    itemsBox.className = 'items-box' + (isDone ? ' done' : '');
+    itemsBox.innerHTML = items.map(i => `
+      <div class="item-line">
+        <span class="itype">${escapeHtml(i.type)}</span>
+        <span class="icases">${i.cases} cases</span>
+      </div>
+    `).join('') + `
+      <div class="item-total">
+        <span class="lab">Total cases</span>
+        <span class="num-lg">${total}</span>
+      </div>
+    `;
+
+    const hasNote = !!(o.adminNotes && o.adminNotes.trim());
+    const noteBox = $('detailAdminNotes');
+    if(hasNote){
+      const checked = isDone || acknowledgedNotes.has(o.id);
+      noteBox.className = 'note-flag';
+      noteBox.style.display = 'block';
+      noteBox.innerHTML = `
+        <div class="note-flag-text">📌 ${escapeHtml(o.adminNotes.trim())}</div>
+        <label class="note-check${isDone ? ' disabled' : ''}">
+          <input type="checkbox" id="noteAckCheckbox" ${checked ? 'checked' : ''} ${isDone ? 'disabled' : ''}>
+          <span>I've read this note</span>
+        </label>
+      `;
+      if(!isDone){
+        $('noteAckCheckbox').addEventListener('change', (e)=>{
+          if(e.target.checked) acknowledgedNotes.add(o.id);
+          else acknowledgedNotes.delete(o.id);
+          const submitBtn = $('submitBtn');
+          if(submitBtn) submitBtn.disabled = !acknowledgedNotes.has(o.id);
+        });
+      }
+    } else {
+      noteBox.className = '';
+      noteBox.style.display = 'none';
+      noteBox.innerHTML = '';
+    }
+
+    $('staffNotesInput').value = o.staffNotes || '';
+
+    const bannerSlot = $('completedBannerSlot');
+    if(isDone){
+      const when = o.completedAt ? new Date(o.completedAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+      bannerSlot.innerHTML = `<div class="completed-banner">✓ Marked complete${when ? ' · ' + when : ''}</div>`;
+    } else if(isOverdue(o)){
+      bannerSlot.innerHTML = `<div class="overdue-banner">⚠ This order was due ${fmtDateShort(o.date)} and is overdue</div>`;
+    } else {
+      bannerSlot.innerHTML = '';
+    }
+
+    $('stockingControls').style.opacity = isDone ? '0.6' : '1';
+    $('staffNotesInput').disabled = isDone;
+
+    const actions = $('detailActions');
+    if(isDone){
+      actions.innerHTML = `<button class="btn btn-ghost" id="reopenBtn">Reopen order</button>`;
+      $('reopenBtn').addEventListener('click', async ()=>{
+        try{
+          await ordersRef.doc(o.id).update({ status: 'pending', completedAt: null });
+          showToast('Order reopened.');
+        }catch(err){ showToast('Could not update order.'); }
+      });
+    } else {
+      actions.innerHTML = `<button class="btn btn-primary" id="submitBtn" ${hasNote && !acknowledgedNotes.has(o.id) ? 'disabled' : ''}>Mark complete</button>`;
+      $('submitBtn').addEventListener('click', async ()=>{
+        const btn = $('submitBtn');
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+        try{
+          await ordersRef.doc(o.id).update({
+            staffNotes: $('staffNotesInput').value.trim(),
+            status: 'completed',
+            completedAt: Date.now()
+          });
+          showToast('Order marked complete.');
+        }catch(err){
+          showToast('Could not submit — check connection.');
+          btn.disabled = false;
+          btn.textContent = 'Mark complete';
+        }
+      });
+    }
+  }
+  $('backToListBtn').addEventListener('click', ()=>{
+    if(activeDateStr) openOrderList(activeDateStr);
+    else showCalendar();
+  });
+
+  function refreshCurrentView(){
+    renderCalendar();
+    renderAdminList();
+    if($('viewOrderList').classList.contains('active')) renderOrderList();
+    if($('viewOrderDetail').classList.contains('active')) renderOrderDetail();
+  }
+
+  const t = new Date();
+  currentYear = t.getFullYear();
+  currentMonth = t.getMonth();
+  $('fDate').value = todayStr();
+
+  ordersRef.onSnapshot((snapshot)=>{
+    orders = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(firstLoad){
+      firstLoad = false;
+      $('loadingRow').style.display = 'none';
+      $('mainUI').style.display = 'block';
+    }
+    refreshCurrentView();
+  }, (err)=>{
+    $('loadingRow').innerHTML = 'Could not connect to Firebase. Check your config and Firestore rules.';
+  });
+
+})();
+</script>
+</body>
+</html>
